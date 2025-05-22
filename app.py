@@ -29,9 +29,6 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 # Ensure upload directory exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Initialize Groq client
-groq_client = groq.Client(api_key=os.getenv('GROQ_API_KEY'))
-
 # Initialize HuggingFace embeddings
 embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-mpnet-base-v2",
@@ -109,7 +106,10 @@ def identify_themes(query_results):
     Please identify the main themes and provide a structured response with citations."""
     
     # Use Groq to identify themes
-    chat = ChatGroq(groq_api_key="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", model_name="llama-3.1-8b-instant")
+    chat = ChatGroq(
+    groq_api_key=os.getenv("GROQ_API_KEY"),
+    model_name="llama-3.1-8b-instant"
+        )
     response = chat.invoke(prompt)
     
     return response.content
