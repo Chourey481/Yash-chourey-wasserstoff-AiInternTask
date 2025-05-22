@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Research & Theme Identification Chatbot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .container { max-width: 1200px; }
+        .upload-section, .query-section, .documents-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .results-table {
+            margin-top: 20px;
+        }
+        .theme-box {
+            background: #f8f9fa;
+            border-left: 4px solid #0d6efd;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        #uploadProgress {
+            display: none;
+            margin-top: 10px;
+        }
+        .document-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container my-5">
+        <h1 class="text-center mb-5">Document Research & Theme Identification Chatbot</h1>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <!-- Upload Section -->
+                <div class="upload-section">
+                    <h3>Upload Documents</h3>
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <input type="file" class="form-control" id="fileInput" accept=".pdf,.png,.jpg,.jpeg">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Upload</button>
+                    </form>
+                    <div class="progress" id="uploadProgress">
+                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Documents Section -->
+                <div class="documents-section">
+                    <h3>Uploaded Documents</h3>
+                    <div class="document-list" id="documentList">
+                        <!-- Documents will be listed here -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <!-- Query Section -->
+                <div class="query-section">
+                    <h3>Research Query</h3>
+                    <div class="mb-3">
+                        <textarea class="form-control" id="queryInput" rows="3" placeholder="Enter your research query here..."></textarea>
+                    </div>
+                    <button onclick="processQuery()" class="btn btn-primary">Submit Query</button>
+
+                    <!-- Results Section -->
+                    <div id="resultsSection" style="display: none;">
+                        <h4 class="mt-4">Document Results</h4>
+                        <div class="table-responsive results-table">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Document ID</th>
+                                        <th>Extracted Answer</th>
+                                        <th>Citation</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resultsTableBody">
+                                    <!-- Results will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h4 class="mt-4">Identified Themes</h4>
+                        <div id="themesContainer">
+                            <!-- Themes will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Load documents on page load
+        document.addEventListener('DOMContentLoaded', loadDocuments);
+
+        // Handle file upload
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('fileInput');
+            const progressBar = document.getElementById('uploadProgress');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Please select a file first!');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            progressBar.style.display = 'block';
+            progressBar.querySelector('.progress-bar').style.width = '0%';
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('File uploaded and processed successfully!');
+                    loadDocuments();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+                fileInput.value = '';
+                progressBar.style.display = 'none';
+            })
+            .catch(error => {
+                alert('Error uploading file: ' + error);
+                progressBar.style.display = 'none';
+            });
+        });
+
+        // Load documents list
+        function loadDocuments() {
+            fetch('/documents')
+            .then(response => response.json())
+            .then(data => {
+                const documentList = document.getElementById('documentList');
+                documentList.innerHTML = '';
+                
+                data.documents.forEach(doc => {
+                    const docElement = document.createElement('div');
+                    docElement.className = 'p-2 border-bottom';
+                    docElement.innerHTML = `
+                        <strong>${doc.doc_id}</strong>: ${doc.filename}
+                    `;
+                    documentList.appendChild(docElement);
+                });
+            })
+            .catch(error => console.error('Error loading documents:', error));
+        }
+
+        // Process query
+        function processQuery() {
+            const query = document.getElementById('queryInput').value.trim();
+            if (!query) {
+                alert('Please enter a query!');
+                return;
+            }
+
+            fetch('/query', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayResults(data);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => alert('Error processing query: ' + error));
+        }
+
+        // Display results
+        function displayResults(data) {
+            const resultsSection = document.getElementById('resultsSection');
+            const resultsTableBody = document.getElementById('resultsTableBody');
+            const themesContainer = document.getElementById('themesContainer');
+
+            resultsSection.style.display = 'block';
+            resultsTableBody.innerHTML = '';
+            themesContainer.innerHTML = '';
+
+            // Display tabular results
+            data.tabular_results.forEach(result => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${result.doc_id}</td>
+                    <td>${result.extracted_answer}</td>
+                    <td>${result.citation}</td>
+                `;
+                resultsTableBody.appendChild(row);
+            });
+
+            // Display themes
+            const themeBox = document.createElement('div');
+            themeBox.className = 'theme-box';
+            themeBox.innerHTML = `<pre>${data.themes}</pre>`;
+            themesContainer.appendChild(themeBox);
+        }
+    </script>
+</body>
+</html>
